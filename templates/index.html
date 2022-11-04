@@ -1,0 +1,293 @@
+<!doctype html>
+<head>
+    <title>Document - Python</title>
+    <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='bootstrap/css/bootstrap.min.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+
+    <script type="text/javascript" src="{{ url_for('static', filename='js/jquery.min.js') }}"></script>
+    <script type="text/javascript" src="{{ url_for('static', filename='js/common.js') }}"></script>
+
+    <!-- Resources -->
+    <script src="https://cdn.amcharts.com/lib/5/index.js"></script>
+    <script src="https://cdn.amcharts.com/lib/5/xy.js"></script>
+    <script src="https://cdn.amcharts.com/lib/5/themes/Animated.js"></script> 
+</head>
+<style>
+  #chartdiv {
+    width: 100%;
+    height: 300px;
+  }
+  </style>
+<html>
+  <body>
+    <main>
+        <div class="px-4 py-3 my-2 text-center">
+          <h1 class="display-6 fw-bold text-primary">Predict Data</h1>            
+        </div>
+        <form id="formId" action="{{url_for('uploader')}}" method="POST" enctype="multipart/form-data">
+          <div class="col-md-6 mx-auto text-center">
+            <span class="valid-file" style="font-weight: bold;color: red; display: none">
+              Invalid upload only .txt, .csv, .docx.
+            </span>
+          </div>
+          <div id="div-error" class="col-md-6 mx-auto text-center hide">
+            <span id="msgId" style="font-weight: bold;color: red"></span>
+          </div>
+          <div class="col-md-6 mx-auto text-center">
+            <div class="d-grid gap-2 d-sm-flex justify-content-sm-center align-items-center my-1">
+              <input type="file" id="uploadFile" title=" " name="file" class="form-control" />
+              <button class="btn btn-primary px-4" id="btnImport" type="button">Import</button>
+            </div>
+          </div>
+        </form>  
+        <hr>
+        <div id="div-result" class="col-md-6 mx-auto text-center hide">
+          <h3>Completed!.</h3>
+          <span>Please click the link below to download!.</span>
+          <br>
+          <a id="pathId" href="#"></a>
+        </div>
+        <div class="col-md-6 mx-auto text-center">
+          <div id="chartdiv" class="hide"></div>
+        </div>
+        <div id="loading" class="overlay hide">
+            <div class="overlay__inner">
+                <div class="overlay__content"><span class="spinner"></span></div>
+            </div>
+        </div>
+    </main> 
+  </body>
+  <script>
+    var data_charst = []
+    $('#btnImport').click(function() {
+      $("#div-result").hide();
+      $("#div-error").hide();
+      $("#chartdiv").hide();
+
+      // validation form
+      let fileName = $("#uploadFile")[0] != null ? $("#uploadFile")[0].value : '';
+      if(validation(fileName)) return;
+
+      let formData = new FormData($('#formId')[0]); 
+      let url = $("#formId").attr('action');
+      $.ajax({
+          url: url,
+          data: formData,
+          method: "POST",
+          processData: false,
+          cache: false,
+          contentType: false,
+          success: function(data) {
+            console.log(data)
+            if(data.error != null && data.error.length > 0) {
+              $('#div-error').show();
+              $("#msgId").html(data.error);
+            } else {
+              // result = $(data).find('.result-msg').html();
+              $("#div-result").show();
+              $("#pathId").attr("href", "/download/" + data.filename)
+              $("#pathId").html(data.filename);
+              data_charst = data.results
+              yAxis.data.setAll(data_charst);
+              series.data.setAll(data_charst);
+  
+              $("#chartdiv").show();
+            }
+            $("#uploadFile").val("")
+          }
+      });
+    })
+
+    $("#uploadFile").change(function (e) {
+      let fileName = e.target.files.length > 0 && e.target.files[0].name != null ? e.target.files[0].name : '';
+      validation(fileName);
+    })
+
+    function validation(fileName) {
+      if (fileName != '') {
+        var ext = fileName.split(".");
+        ext = ext[ext.length-1].toLowerCase();      
+        var arrayExtensions = ["txt" , "csv", "docx"];
+
+        // check extensions file
+        if (arrayExtensions.lastIndexOf(ext) == -1) {
+          $('.valid-file').show();
+          $('#uploadFile').addClass('validation-custom');
+          return true;
+        } else {
+          $('.valid-file').hide();
+          $("#uploadFile").removeClass("validation-custom");
+          return false;
+        }
+      } else {
+        $('.valid-file').show();
+        $('#uploadFile').addClass('validation-custom');
+        return true;
+      }
+    }
+  </script>
+  <!-- Chart code -->
+<script>
+   // Set data
+  // var data_charst = [{
+  //   key: "Label_1",
+  //   value: 70
+  // }, {
+  //   key: "Label_0",
+  //   value: 30
+  // }];
+  // am5.ready(function() {
+  // Create root element
+  // https://www.amcharts.com/docs/v5/getting-started/#Root_element
+  var root = am5.Root.new("chartdiv");
+  
+  // Set themes
+  // https://www.amcharts.com/docs/v5/concepts/themes/
+  root.setThemes([am5themes_Animated.new(root)]);
+  
+  // Create chart
+  // https://www.amcharts.com/docs/v5/charts/xy-chart/
+  var chart = root.container.children.push(
+    am5xy.XYChart.new(root, {
+      panX: false,
+      panY: false,
+      wheelX: "none",
+      wheelY: "none"
+    })
+  );
+  
+  // Create axes
+  // https://www.amcharts.com/docs/v5/charts/xy-chart/axes/
+  var yRenderer = am5xy.AxisRendererY.new(root, { minGridDistance: 30 });
+  
+  var yAxis = chart.yAxes.push(
+    am5xy.CategoryAxis.new(root, {
+      maxDeviation: 0,
+      categoryField: "key",
+      renderer: yRenderer
+    })
+  );
+  
+  var xAxis = chart.xAxes.push(
+    am5xy.ValueAxis.new(root, {
+      // maxDeviation: 0,
+      // min: 0,
+      min: 0,
+      max: 100,
+      numberFormat: "#'%'",
+      strictMinMax: true,
+      calculateTotals: true,
+      renderer: am5xy.AxisRendererX.new(root, {})
+    })
+  );
+  
+  // Create series
+  // https://www.amcharts.com/docs/v5/charts/xy-chart/series/
+  var series = chart.series.push(
+    am5xy.ColumnSeries.new(root, {
+      name: "Series 1",
+      xAxis: xAxis,
+      yAxis: yAxis,
+      valueXField: "value",
+      sequencedInterpolation: true,
+      categoryYField: "key"
+    })
+  );
+  
+  var columnTemplate = series.columns.template;
+  
+  columnTemplate.setAll({
+    draggable: false,
+    cursorOverStyle: "pointer",
+    // tooltipText: "drag to rearrange",
+    tooltipText: "{categoryY}:{value.formatNumber('#.#')}%",
+    tooltipY: am5.percent(10),
+    cornerRadiusBR: 10,
+    cornerRadiusTR: 10
+  });
+  columnTemplate.adapters.add("fill", (fill, target) => {
+    return chart.get("colors").getIndex(series.columns.indexOf(target));
+  });
+  
+  columnTemplate.adapters.add("stroke", (stroke, target) => {
+    return chart.get("colors").getIndex(series.columns.indexOf(target));
+  });
+  
+  columnTemplate.events.on("dragstop", () => {
+    sortCategoryAxis();
+  });
+  
+  // Get series item by category
+  function getSeriesItem(category) {
+    for (var i = 0; i < series.dataItems.length; i++) {
+      var dataItem = series.dataItems[i];
+      if (dataItem.get("categoryY") == category) {
+        return dataItem;
+      }
+    }
+  } 
+  
+  // Axis sorting
+  function sortCategoryAxis() {
+    // Sort by value
+    series.dataItems.sort(function (x, y) {
+      return y.get("graphics").y() - x.get("graphics").y();
+    });
+  
+    var easing = am5.ease.out(am5.ease.cubic);
+  
+    // Go through each axis item
+    am5.array.each(yAxis.dataItems, function (dataItem) {
+      // get corresponding series item
+      var seriesDataItem = getSeriesItem(dataItem.get("category"));
+  
+      if (seriesDataItem) {
+        // get index of series data item
+        var index = series.dataItems.indexOf(seriesDataItem);
+  
+        var column = seriesDataItem.get("graphics");
+  
+        // position after sorting
+        var fy =
+          yRenderer.positionToCoordinate(yAxis.indexToPosition(index)) -
+          column.height() / 2;
+  
+        // set index to be the same as series data item index
+        if (index != dataItem.get("index")) {
+          dataItem.set("index", index);
+  
+          // current position
+          var x = column.x();
+          var y = column.y();
+  
+          column.set("dy", -(fy - y));
+          column.set("dx", x);
+  
+          column.animate({ key: "dy", to: 0, duration: 600, easing: easing });
+          column.animate({ key: "dx", to: 0, duration: 600, easing: easing });
+        } else {
+          column.animate({ key: "y", to: fy, duration: 600, easing: easing });
+          column.animate({ key: "x", to: 0, duration: 600, easing: easing });
+        }
+      }
+    });
+  
+    // Sort axis items by index.
+    // This changes the order instantly, but as dx and dy is set and animated,
+    // they keep in the same places and then animate to true positions.
+    yAxis.dataItems.sort(function (x, y) {
+      return x.get("index") - y.get("index");
+    });
+  }
+  
+  
+  // Make stuff animate on load
+  // https://www.amcharts.com/docs/v5/concepts/animations/
+  series.appear(1000);
+  chart.appear(1000, 100);
+  
+  // }); // end am5.ready()
+  </script>
+     
+</html>
