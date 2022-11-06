@@ -51,11 +51,11 @@ def uploader():
                 app.logger.info('File name: ' + file_name)
 
                 chartsOutput = [{"key": "Label_0","value": 0 }, {"key": "Label_1","value": 0 }]
-
+                dataTable = []
                 if file_extension == '.csv':
                     # csv file
-                    result, dataCharts = parseCSV(f)
-
+                    result, dataCharts, dataTable = parseCSV(f)
+                
                     rcLength = len(result)
                     # Cal % of records as 0
                     chartsOutput[0]['value'] = dataCharts['lb0']/rcLength*100
@@ -64,13 +64,14 @@ def uploader():
                     # Cal % of records as 1
                     chartsOutput[1]['value'] = dataCharts['lb1']/rcLength*100
 
+                    dataTable = dataTable
                 elif file_extension == '.txt':
                     # txt file
                     file_name_str = file_name + ".txt"
                     file_path = os.path.join(upload_path, file_name_str)
                     f.save(file_path)
 
-                    result, dataCharts = parseTxt(file_path)
+                    result, dataCharts, dataTable = parseTxt(file_path)
 
                     rcLength = len(result)
                     # Cal % of records as 0
@@ -79,13 +80,15 @@ def uploader():
 
                     # Cal % of records as 1
                     chartsOutput[1]['value'] = dataCharts['lb1']/rcLength*100
+
+                    dataTable = dataTable
                 else:
                     # docx file
                     file_name_str = file_name + ".docx"
                     file_path = os.path.join(upload_path, file_name_str)
                     f.save(file_path)
 
-                    result, dataCharts = parseDocx(file_path)
+                    result, dataCharts, dataTable = parseDocx(file_path)
 
                     rcLength = len(result)
                     # Cal % of records as 0
@@ -94,7 +97,9 @@ def uploader():
 
                     # Cal % of records as 1
                     chartsOutput[1]['value'] = dataCharts['lb1']/rcLength*100
-                
+                    
+                    dataTable = dataTable
+
                 # Get date time
                 date_time = datetime.now()
                 date_time_str = date_time.strftime("%Y%m%d%H%M%S")
@@ -105,7 +110,7 @@ def uploader():
                 outputCsv.to_csv(os.path.join(upload_path, file_name_csv), encoding='utf8', header=header_name, index=False)
                 
                 app.logger.info('--------End------')
-                return jsonify(results=chartsOutput, filename=file_name_csv, error=msg)
+                return jsonify(results=chartsOutput, filename=file_name_csv, datatable=dataTable, error=msg)
                 # return render_template("index.html", results=file_name_csv, error=msg)
             else:
                 msg = 'Invalid upload only .txt, .csv, .docx.'
@@ -113,7 +118,7 @@ def uploader():
             app.logger.error(str(e))
             msg = 'A system error has occurred. Please try again.'
         app.logger.info('--------End------')
-        return jsonify(results=chartsOutput, filename='', error=msg)
+        return jsonify(results=chartsOutput, filename='', datatable='', error=msg)
         # return render_template('index.html', results='', error=msg)
     else:
         app.logger.info('--------End------')
@@ -137,9 +142,16 @@ def parseCSV(csv_file):
     # data ouput chart
     dataCharts = {'lb0': 0, 'lb1': 0 }
 
+     # data table ouput table
+    dataTable = []
+
+
     # Loop through the Rows
     for row in csv_reader:
         if len(row) > 0:
+             # object data ouput table
+            dataObject = {'name': '', 'label': 0, 'score': 0}
+            
             dataRow = []
             dataRow.append(row[0])
             # labelVal = predict(device, tokenizer, model, row[0])
@@ -150,18 +162,30 @@ def parseCSV(csv_file):
                 dataCharts['lb0'] += 1
             else:
                 dataCharts['lb1'] += 1
+            
+            dataObject['name'] = row[0]
+            dataObject['label'] = predicted_class_id
+            dataObject['score'] = logits_max
+            dataTable.append(dataObject)
 
-    return result, dataCharts
+    return result, dataCharts, dataTable
 
 def parseTxt(path_file):
     result = []
+
     # data ouput chart
     dataCharts = {'lb0': 0, 'lb1': 0 }
+
+    # data table ouput table
+    dataTable = []
     txt_file = open(path_file, 'r', encoding='utf-8')
     Lines = txt_file.readlines()
     for line in Lines:
         # print(line)
         if line and line.strip():
+            # object data ouput table
+            dataObject = {'name': '', 'label': 0, 'score': 0}
+
             dataRow = []
             dataRow.append(line.strip())
             # labelVal = predict(device, tokenizer, model, line.strip())
@@ -174,37 +198,55 @@ def parseTxt(path_file):
             else:
                 dataCharts['lb1'] += 1
 
+            dataObject['name'] = line.strip()
+            dataObject['label'] = predicted_class_id
+            dataObject['score'] = logits_max
+            dataTable.append(dataObject)
+
     txt_file.close()
 
     # Delete the file .txt after finishing processing
     os.remove(path_file)
-    return result, dataCharts
+    return result, dataCharts, dataTable
 
 def parseDocx(path_file):
     result = []
+
     # data ouput chart
     dataCharts = {'lb0': 0, 'lb1': 0 }
+
+    # data table ouput table
+    dataTable = []
+
     doc = docx.Document(path_file)
     all_paras = doc.paragraphs
 
     for para in all_paras:
         # print(para.text)
         if para.text and para.text.strip():
+            # object data ouput table
+            dataObject = {'name': '', 'label': 0, 'score': 0}
+            
             dataRow = []
             dataRow.append(para.text)
             # labelVal = predict(device, tokenizer, model, para.text)
             predicted_class_id, labels, logits_max = sentence_classification(device, tokenizer, model, nlp, para.text)
-            print(predicted_class_id, labels, logits_max)
+            # print(predicted_class_id, labels, logits_max)
             dataRow.append(predicted_class_id)
             result.append(dataRow)
             if predicted_class_id == 0:
                 dataCharts['lb0'] += 1
             else:
                 dataCharts['lb1'] += 1
+            
+            dataObject['name'] = para.text
+            dataObject['label'] = predicted_class_id
+            dataObject['score'] = logits_max
+            dataTable.append(dataObject)
 
     # Delete the file .docx after finishing processing
     os.remove(path_file)
-    return result, dataCharts
+    return result, dataCharts, dataTable
 
 if __name__ == '__main__':
    app.run(debug=True, host='0.0.0.0')

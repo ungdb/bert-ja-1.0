@@ -12,6 +12,12 @@
     <script src="https://cdn.amcharts.com/lib/5/index.js"></script>
     <script src="https://cdn.amcharts.com/lib/5/xy.js"></script>
     <script src="https://cdn.amcharts.com/lib/5/themes/Animated.js"></script> 
+
+    <!-- first data -->
+    <script src="//cdnjs.cloudflare.com/ajax/libs/lodash.js/0.10.0/lodash.min.js"></script>
+    <!-- data table -->
+    <!-- <script src="https://cdn.datatables.net/1.12.1/js/jquery.dataTables.min.js"></script> 
+		<script src="https://cdn.datatables.net/1.12.1/js/dataTables.bootstrap5.min.js"></script>  -->
 </head>
 <style>
   #chartdiv {
@@ -42,14 +48,32 @@
           </div>
         </form>  
         <hr>
-        <div id="div-result" class="col-md-6 mx-auto text-center hide">
-          <h3>Completed!.</h3>
-          <span>Please click the link below to download!.</span>
-          <br>
-          <a id="pathId" href="#"></a>
-        </div>
-        <div class="col-md-6 mx-auto text-center">
-          <div id="chartdiv" class="hide"></div>
+        <div id="div-result" class="hide">
+          <div class="col-md-6 mx-auto text-center">
+            <h3>Completed!.</h3>
+            <span>Please click the link below to download!.</span>
+            <br>
+            <a id="pathId" href="#"></a>
+          </div>
+          <div class="row col-md-11 mx-auto mt-4">
+            <div class="col" style="margin-right: 5rem;">
+              <table id="example" class="table table-striped table-bordered" style="width:100%">
+                <thead>
+                  <tr>
+                    <th>Text</th>
+                    <th>label</th>
+                    <th>Score</th>
+                  </tr>
+                </thead>
+                <tbody id="body_table"></tbody>
+              </table>
+            </div>
+            <div class="col">
+              <!-- <div class="col-md-5 mx-auto text-center"> -->
+                <div id="chartdiv" class="hide"></div>
+              <!-- </div> -->
+            </div>
+          </div>
         </div>
         <div id="loading" class="overlay hide">
             <div class="overlay__inner">
@@ -67,7 +91,7 @@
 
       // validation form
       let fileName = $("#uploadFile")[0] != null ? $("#uploadFile")[0].value : '';
-      if(validation(fileName)) return;
+      if(validationFileName(fileName)) return;
 
       let formData = new FormData($('#formId')[0]); 
       let url = $("#formId").attr('action');
@@ -79,7 +103,7 @@
           cache: false,
           contentType: false,
           success: function(data) {
-            console.log(data)
+            // console.log(data)
             if(data.error != null && data.error.length > 0) {
               $('#div-error').show();
               $("#msgId").html(data.error);
@@ -88,12 +112,23 @@
               $("#div-result").show();
               $("#pathId").attr("href", "/download/" + data.filename)
               $("#pathId").html(data.filename);
-              data_charst = data.results
+              var data_charst = data.results
               yAxis.data.setAll(data_charst);
               series.data.setAll(data_charst);
   
               $("#chartdiv").show();
+
+              var dataTable = JSON.stringify(_.first(data.datatable, 10));
+              console.log(dataTable)
+              $("#body_table tr").remove();
+              var html = prepareDataTable(dataTable);
+              $("#body_table").append(html);
+              // $('#example').DataTable();
+
+              // Remove div search of Table
+              if($("#example_length").length) $('#example_wrapper div').first().remove();
             }
+
             $("#uploadFile").val("")
           }
       });
@@ -101,10 +136,10 @@
 
     $("#uploadFile").change(function (e) {
       let fileName = e.target.files.length > 0 && e.target.files[0].name != null ? e.target.files[0].name : '';
-      validation(fileName);
+      validationFileName(fileName);
     })
 
-    function validation(fileName) {
+    function validationFileName(fileName) {
       if (fileName != '') {
         var ext = fileName.split(".");
         ext = ext[ext.length-1].toLowerCase();      
@@ -126,8 +161,19 @@
         return true;
       }
     }
+
+    function prepareDataTable(data){
+      var html = "";
+      var arr = JSON.parse(data);
+      for (let i = 0; i < arr.length; i++) {
+        html +="<tr><td>" + arr[i].name + "</td>"
+        html +="<td>" + arr[i].label + "</td>"
+        html +="<td>" + arr[i].score + "</td></tr>"
+      }
+      return html;
+    }
   </script>
-  <!-- Chart code -->
+<!-- Chart code -->
 <script>
    // Set data
   // var data_charst = [{
